@@ -14,7 +14,6 @@ import (
 	"log"
 	"net"
 	"practica1/com"
-	//"encoding/binary"
 )
 
 

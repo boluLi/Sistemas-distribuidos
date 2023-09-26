@@ -41,6 +41,27 @@ func findPrimes(interval com.TPInterval) (primes []int) {
 	return primes
 }
 
+func receiveRequest(conn net.Conn) {
+	var request com.Request
+	decoder := gob.NewDecoder(conn)
+	err := decoder.Decode(&request) //  receive the request
+	com.CheckError(err)
+	if(request.Interval.Max != 0){ // Si no envia mensaje de end Tp interval.max =! 0 
+		sendReply(conn,request)
+	}
+}
+
+func sendReply(conn net.Conn, request com.Request ){
+	var reply com.Reply
+
+	reply.Primes = findPrimes(request.Interval)
+	reply.Id = request.Id
+	encoder := gob.NewEncoder(conn)
+	// Enviar los números primos codificados
+	err := encoder.Encode(reply)
+	com.CheckError(err)
+}
+
 // COMPLETAR EL SERVIDOR  .....
 func main() {
 
@@ -49,21 +70,12 @@ func main() {
 	listener, err := net.Listen(CONN_TYPE, endpoint)
 	com.CheckError(err)
 	log.SetFlags(log.Lshortfile | log.Lmicroseconds)
-	var reply com.Reply
-	myInterval := com.TPInterval{
-		Min: 10,
-		Max: 20,
-	}
+	log.Println("***** Listening for new connection in endpoint ", endpoint)
 	for{
-		log.Println("***** Listening for new connection in endpoint ", endpoint)
-		conn, err := listener.Accept()
-		com.CheckError(err)
-		reply.Primes = findPrimes(myInterval)
-		reply.Id = 1
-		encoder := gob.NewEncoder(conn)
-		// Enviar los números primos codificados
-		err = encoder.Encode(reply)
-		defer conn.Close()
+	conn, err := listener.Accept()
+	log.Println("***** New client ******")
+	receiveRequest(conn)
+	com.CheckError(err)
+	defer conn.Close()
 	}
-		com.CheckError(err)
 }

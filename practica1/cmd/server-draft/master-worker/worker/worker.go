@@ -52,6 +52,11 @@ func receiveRequest(conn net.Conn) {
 	}
 }
 
+func findServer(){
+
+}
+
+
 func sendReply(conn net.Conn, request com.Request ){
 	var reply com.Reply
 
@@ -65,15 +70,14 @@ func sendReply(conn net.Conn, request com.Request ){
 
 // COMPLETAR EL SERVIDOR  .....
 func main() {
-	endpoint := "localhost:30000"
+
+	endpoint := "localhost:1111"
 	CONN_TYPE := "tcp"
-	listener, err := net.Listen(CONN_TYPE, endpoint)
+	conn, err := net.Dial(CONN_TYPE, endpoint)
 	com.CheckError(err)
 	log.SetFlags(log.Lshortfile | log.Lmicroseconds)
-	log.Println("***** Listening for new connection in endpoint ", endpoint)
+	log.Println("***** WORKER CONECTADO AL MASTER ***** ", endpoint)
 	for{
-	conn, err := listener.Accept()
-	log.Println("***** New client ******")
 	receiveRequest(conn)
 	com.CheckError(err)
 	defer conn.Close()

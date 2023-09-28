@@ -41,30 +41,26 @@ func findPrimes(interval com.TPInterval) (primes []int) {
 }
 
 func receiveRequest(conn net.Conn) {
-
+	
 	var request com.Request
 	decoder := gob.NewDecoder(conn)
 	err := decoder.Decode(&request) //  receive the request
-	log.Println("Request recibida" )
 	com.CheckError(err)
+	log.Println("Request recibida" )
 	if(request.Interval.Max != 0){ // Si no envia mensaje de end Tp interval.max =! 0 
 		sendReply(conn,request)
 	}
 }
 
-func findServer(){
-
-}
-
-
 func sendReply(conn net.Conn, request com.Request ){
 	var reply com.Reply
-
 	reply.Primes = findPrimes(request.Interval)
+	log.Printf("Números primos encontrados: %v", reply.Primes)
 	reply.Id = request.Id
 	encoder := gob.NewEncoder(conn)
 	// Enviar los números primos codificados
 	err := encoder.Encode(reply)
+	log.Println("Reply enviada" )
 	com.CheckError(err)
 }
 
@@ -73,13 +69,14 @@ func main() {
 
 	endpoint := "localhost:1111"
 	CONN_TYPE := "tcp"
+	
 	conn, err := net.Dial(CONN_TYPE, endpoint)
 	com.CheckError(err)
 	log.SetFlags(log.Lshortfile | log.Lmicroseconds)
 	log.Println("***** WORKER CONECTADO AL MASTER ***** ", endpoint)
 	for{
-	receiveRequest(conn)
-	com.CheckError(err)
-	defer conn.Close()
+		receiveRequest(conn)
+		com.CheckError(err)
 	}
+	
 }

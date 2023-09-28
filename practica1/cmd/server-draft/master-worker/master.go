@@ -10,25 +10,50 @@
  package main
 
  import (
-	 //"encoding/gob"
+	 "encoding/gob"
 	 "log"
 	 "net"
 	 "practica1/com"
-	 "io"
+	 //"io"
  )
+
+ 
+
+ 
  
  func worker(canalClient <-chan net.Conn,connWorker net.Conn) {
-	for {
-        select {
-        case connCliente := <-canalClient:
-            // Ahora usamos directamente connCliente sin iniciar una nueva conexión
-            _, err := io.Copy(connCliente, connWorker)
-            com.CheckError(err)
-            connCliente.Close()
-            connWorker.Close()
-        // No necesitamos un caso para workerChanel ya que estamos obteniéndolo directamente
-        // dentro del caso de clientChanel. A menos que haya otra lógica específica que quieras implementar.
-        }
+	for connCliente := range canalClient { 
+		
+		var request com.Request
+		var reply com.Reply
+		
+		decoder := gob.NewDecoder(connCliente)
+		encoder := gob.NewEncoder(connWorker)
+		err := decoder.Decode(&request)
+		com.CheckError(err)
+		err = encoder.Encode(request)
+		com.CheckError(err)
+		
+		log.Println("***** Recibir request y enviar al coworker ******")
+		decoder = gob.NewDecoder(connWorker)
+		encoder = gob.NewEncoder(connCliente)
+		err = decoder.Decode(&reply)
+		com.CheckError(err)
+		err = encoder.Encode(reply)
+		com.CheckError(err)
+		log.Println("***** Recibir replu y enviar al cliente ******")
+		
+		
+
+		//Envia bytes al cliente
+		/*
+		log.Println("***** Recibir request y enviar al coworker ******")
+		io.Copy(connWorker, connCliente)
+		log.Println("***** A ******")
+		io.Copy(connCliente, connWorker)
+		log.Println("***** Enviado reply al cliente ******")
+		*/
+		connCliente.Close()    
 	}
  }
  // COMPLETAR EL SERVIDOR  .....

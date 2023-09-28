@@ -21,15 +21,16 @@
 
  
  
- func worker(canalClient <-chan net.Conn,connWorker net.Conn) {
+ func worker(canalClient <-chan net.Conn,endpointWorker string) {
 	for connCliente := range canalClient { 
-		
+		connWorker, err := net.Dial("tcp", endpointWorker)
+		com.CheckError(err)
 		var request com.Request
 		var reply com.Reply
 		
 		decoder := gob.NewDecoder(connCliente)
 		encoder := gob.NewEncoder(connWorker)
-		err := decoder.Decode(&request)
+		err = decoder.Decode(&request)
 		com.CheckError(err)
 		err = encoder.Encode(request)
 		com.CheckError(err)
@@ -65,29 +66,14 @@
 	 log.Println("ESCUCHANDO PUERTO para clientes"+endpointCliente)
 	 com.CheckError(err)
 	//Workers
-	 endpointWorker := "localhost:1111"
-	 workerListener, err := net.Listen(CONN_TYPE, endpointWorker)
-	 log.Println("ESCUCHANDO PUERTO para worker"+ endpointWorker)
-	 com.CheckError(err)
-
+	endpointWorker := "localhost:1111"
 	 //Canal de cliente
-	 canalClient := make(chan net.Conn)
-	go func(){
-		for {
-			conn, err := workerListener.Accept()
-			log.Println("***** WORKER CONECTADO ******")
-			go worker(canalClient,conn)
-			com.CheckError(err)
- 		}
-	}()
-
-	go func(){
-		for {
-			conn, err := clientListener.Accept()
-			com.CheckError(err)
-			canalClient <- conn
- 		}
-	}()
-	for{}
+	canalClient := make(chan net.Conn)
+	go worker(canalClient,endpointWorker) // we're finished with this client
+	for{
+		conn, err := clientListener.Accept()
+		com.CheckError(err)
+		canalClient <- conn
+ 	}
  }
  

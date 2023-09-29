@@ -1,12 +1,4 @@
-/*
-* AUTOR: Rafael Tolosana Calasanz y Unai Arronategui
-* ASIGNATURA: 30221 Sistemas Distribuidos del Grado en Ingeniería Informática
-*			Escuela de Ingeniería y Arquitectura - Universidad de Zaragoza
-* FECHA: septiembre de 2022
-* FICHERO: server-draft.go
-* DESCRIPCIÓN: contiene la funcionalidad esencial para realizar los servidores
-*				correspondientes a la práctica 1
- */
+
 package main
 
 import (

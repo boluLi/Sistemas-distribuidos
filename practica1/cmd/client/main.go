@@ -73,12 +73,14 @@ func sendRequest(
 // (tiempo de transmisión + tiempo de overheads + tiempo de ejecución efectivo)
 func handleRequestsDelays(requestTimeChan chan com.TimeCommEvent, replayTimeChan chan com.TimeCommEvent) {
 	requestsTimes := make(map[int]time.Time)
+	tiempoTotal := make(map[int]time.Time)
 	for {
 		select {
 		case timeRequest := <-requestTimeChan:
 			requestsTimes[timeRequest.Id] = timeRequest.T
 		case timeReplay := <-replayTimeChan:
 			log.SetFlags(log.Lshortfile | log.Lmicroseconds)
+			tiempoTotal.T.Add(timeReplay.T.Sub(requestsTimes[timeReplay.Id]))
 			log.Println("-> Delay : ",
 				timeReplay.T.Sub(requestsTimes[timeReplay.Id]),
 				", between request ", timeReplay.Id,

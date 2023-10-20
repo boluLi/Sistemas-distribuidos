@@ -21,6 +21,7 @@ type Request struct{
 type Reply struct{}
 
 type RASharedDB struct {
+    pid         int
     OurSeqNum   int
     HigSeqNum   int
     OutRepCnt   int
@@ -44,10 +45,37 @@ func New(me int, usersFile string) (*RASharedDB) {
 
 //Pre: Verdad
 //Post: Realiza  el  PreProtocol  para el  algoritmo de
-//      Ricart-Agrawala Generalizado
+//      Ricart-Agrawala Generalizado Require mutex
 func (ra *RASharedDB) PreProtocol(){
-    // TODO completar
+    
 }
+// enviar a los N - 1 procesos distribuidos una petici´on de acceso a la seccion critica
+func (ra *RASharedDB) askPermission(){
+    for pidAux := 0; i < n-1; i++ {
+        if(ra.pid == pidAux){
+            continue;
+        }
+        ra.ms.Send(pid, Request{Clock: ra.OurSeqNum, Pid: pidAux})
+    }
+}
+
+
+func receiveReply(ra *RASharedDB) {
+    for {
+        msg := <-ra.ms.Inbox
+        switch m := msg.Msg.(type) {
+        case Request:
+           go handleRequests(ra) // TODO: completar
+        case Reply:
+            go handleReplys(ra)// TODO: completar
+        }
+    }
+}
+func handleRequests(ra *RASharedDB) {
+}
+func handleReplys(ra *RASharedDB) {
+}
+
 
 //Pre: Verdad
 //Post: Realiza  el  PostProtocol  para el  algoritmo de

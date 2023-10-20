@@ -14,14 +14,17 @@ import (
 )
 
 type Request struct{
-    Clock   int
+    Clock  []int
     Pid     int
 }
 
-type Reply struct{}
+type Reply struct{
+    Clock  []int
+}
 
 type RASharedDB struct {
     pid         int
+    vectorPids  []int
     OurSeqNum   int
     HigSeqNum   int
     OutRepCnt   int
@@ -38,8 +41,8 @@ type RASharedDB struct {
 func New(me int, usersFile string) (*RASharedDB) {
     messageTypes := []Message{Request, Reply}
     msgs = ms.New(me, usersFile string, messageTypes)
-    ra := RASharedDB{0, 0, 0, false, []int{}, &msgs,  make(chan bool),  make(chan bool), &sync.Mutex{}}
-    // TODO completar
+    ra := RASharedDB{0, []int{}, 0, 0, 0, false, []int{}, &msgs,  make(chan bool),  make(chan bool), &sync.Mutex{}}
+    go receiveReply(&ra)
     return &ra
 }
 
@@ -47,7 +50,18 @@ func New(me int, usersFile string) (*RASharedDB) {
 //Post: Realiza  el  PreProtocol  para el  algoritmo de
 //      Ricart-Agrawala Generalizado Require mutex
 func (ra *RASharedDB) PreProtocol(){
-    
+    // TODO completar
+    ra.Mutex.Lock()
+    // ra.OurSeqNum = ra.HigSeqNum + 1
+    ra.vectorPids[ra.pid]++; // Incrementamos el reloj
+    ra.OutRepCnt = 0
+    ra.ReqCS = true
+    ra.RepDefd = make([]bool, ra.N)
+    ra.RepDefd[ra.pid] = true
+    ra.askPermission()
+    ra.Mutex.Unlock()
+    <-ra.chrep
+    // SECCION CRITICA
 }
 // enviar a los N - 1 procesos distribuidos una petici´on de acceso a la seccion critica
 func (ra *RASharedDB) askPermission(){
@@ -55,7 +69,10 @@ func (ra *RASharedDB) askPermission(){
         if(ra.pid == pidAux){
             continue;
         }
-        ra.ms.Send(pid, Request{Clock: ra.OurSeqNum, Pid: pidAux})
+        ra.Mutex.Lock()
+        ra.vectorPids[ra.pid]++; // Incrementamos el reloj
+        ra.ms.Send(pid, Request{Clock: ra.vectorPids, Pid: pidAux})
+        ra.Mutex.Unlock()
     }
 }
 
@@ -65,26 +82,75 @@ func receiveReply(ra *RASharedDB) {
         msg := <-ra.ms.Inbox
         switch m := msg.Msg.(type) {
         case Request:
-           go handleRequests(ra) // TODO: completar
+            ra.Mutex.Lock()
+            ra.handleRequest(m)
+            ra.Mutex.Unlock()
         case Reply:
-            go handleReplys(ra)// TODO: completar
+            ra.Mutex.Lock()
+            ra.handleReply(m)
+            ra.Mutex.Unlock()
         }
     }
 }
-func handleRequests(ra *RASharedDB) {
-}
-func handleReplys(ra *RASharedDB) {
+
+func (ra *RASharedDB) handleRequest(req Request) {
+    refreshClock(ra,req.Clock)
+    //ra.HigSeqNum = max(ra.HigSeqNum, req.Clock)
+    if ra.RepDefd[req.Pid] {
+        ra.ms.Send(req.Pid, Reply{})
+    } else {
+        ra.OutReqCnt++
+        if ra.ReqCS && (ra.vectorPids[ra.pid] < req.Clock[req.pid] || (rra.vectorPids[ra.pid] ==req.Clock[req.pid]
+            && ra.pid < req.Pid)) {
+            refreshClock(ra,req.Clock)
+            ra.ms.Send(req.Pid, Reply{})
+          
+        } else {
+            ra.chrep <- true
+        }
+    }
 }
 
+
+
+func (ra *RASharedDB) handleReply(rep Reply) {
+    refreshClock(ra,rep.Clock)
+    ra.OutRepCnt++
+    if ra.OutRepCnt == ra.N-1 {
+        ra.chrep <- true
+    }
+}
 
 //Pre: Verdad
 //Post: Realiza  el  PostProtocol  para el  algoritmo de
 //      Ricart-Agrawala Generalizado
 func (ra *RASharedDB) PostProtocol(){
-    // TODO completar
+    ra.Mutex.Lock()
+    ra.ReqCS = false
+    ra.Mutex.Unlock()
+
+    for pidAux := 0; i < n-1; i++ {
+        if(ra.pid == pidAux || !ra.RepDefd[pidAux]){
+            continue;
+        }
+        ra.ms.Send(pidAux, Reply{})
+    }
+}
+func (ra *RASharedDB) refreshClock(vectorPidsAux []int){
+    ra.vectorPids[ra.pid]++;
+    for pidAux := 0; i < n; i++ {
+        ra.vectorPids[pidAux] = max(ra.vectorPids[pidAux],vectorPidsAux[pidAux])
+    }
+}
+func (ra *RASharedDB) maxVectorPid(vectorPids []int){
+    max := 0
+    for pidAux := 0; i < n; i++ {
+        max = max(max, vectorPids[pidAux])
+    }
+    return max
 }
 
-func (ra *RASharedDB) Stop(){
+func (ra *RASharedDB,) Stop(){
     ra.ms.Stop()
     ra.done <- true
 }

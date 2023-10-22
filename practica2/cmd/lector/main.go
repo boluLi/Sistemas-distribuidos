@@ -28,19 +28,14 @@ func main() {
 	// Declaración de canales
 	reqch := make(chan ra.Request) // canal para la redirección de requests al ra
 	repch := make(chan ra.Reply)   // canal para la redirección de replies al ra
-	barch := make(chan bool)       // canal para la recepción del ACK de la barrera
 
 	// Inicialización del ms
 	messageTypes := []ms.Message{ra.Request{}, ra.Reply{}, mr.Update{}, mr.Barrier{}}
 	msgs := ms.New(me, usersFile, messageTypes)
-	go mr.ReceiveMessage(&msgs, myFile, reqch, repch, barch)
+	go mr.ReceiveMessage(&msgs, myFile, reqch, repch)
 
 	// Inicialización del ra
 	radb := ra.New(&msgs, me, "read", reqch, repch)
-
-	// Barrera
-	msgs.Send(ra.N+1, mr.Barrier{})
-	<-barch
 
 	// Lanzamiento del proceso lector
 	var wg sync.WaitGroup

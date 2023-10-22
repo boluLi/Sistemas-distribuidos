@@ -16,6 +16,7 @@ import (
 type Request struct{
     Clock  []int
     Pid     int
+    op      string
 }
 
 type Reply struct{
@@ -30,25 +31,26 @@ type ExclusionMatrix map[string]map[string]bool
 
 
 type RASharedDB struct {
-    pid         int
-    vectorPids  []int
-    OurSeqNum   int
-    HigSeqNum   int
-    OutRepCnt   int
-    ReqCS       boolean
-    RepDefd     bool[]
-    exclude ExclusionMatrix
-    ms          *MessageSystem
-    done        chan bool
-    chrep       chan bool
-    Mutex       sync.Mutex
-    op          string 
+    pid         int             // identificador de proceso
+    vectorPids  []int           // reloj vectorial
+    OurSeqNum   int             // numero de secuencia de la peticion
+    HigSeqNum   int             // numero de secuencia mas alto recibido
+    OutRepCnt   int             // numero de respuestas recibidas
+    ReqCS       boolean         // true si el proceso quiere entrar en la seccion critica
+    RepDefd     bool[]          // true si la respuesta a un proceso ha sido pospuesuta
+    exclude ExclusionMatrix     // matriz de exclusion mutua
+    ms          *MessageSystem  // sistema de mensajes
+    done        chan bool       // canal de comunicacion para parar el proceso
+    chrep       chan bool       // canal de comunicacion para esperar todas las respuestas recibidas
+    Mutex       sync.Mutex      // mutex para proteger las variables compartidas
+    op          string          // operacion a realizar
 }
 
 
 func New(me int, usersFile string) (*RASharedDB) {
     messageTypes := []Message{Request, Reply}
     msgs = ms.New(me, usersFile string, messageTypes)
+    // Definicion de las reglas de exclusion mutua
     var exclusionRules = ExclusionMatrix{
         Read: {
             Read:  false,
@@ -75,21 +77,25 @@ func (ra *RASharedDB) PreProtocol(){
     ra.OutRepCnt = 0
     ra.ReqCS = true
     ra.RepDefd = make([]bool, ra.N)
+    // propia respuesta ya recibida
     ra.RepDefd[ra.pid] = true
     ra.askPermission()
     ra.Mutex.Unlock()
+    // Esperamos a recibir todas las respuestas
     <-ra.chrep
     // SECCION CRITICA
 }
 // enviar a los N - 1 procesos distribuidos una petici´on de acceso a la seccion critica
 func (ra *RASharedDB) askPermission(){
     for pidAux := 0; i < n-1; i++ {
+        // No enviamos la peticion a nosotros mismos
         if(ra.pid == pidAux){
             continue;
         }
         ra.Mutex.Lock()
         ra.vectorPids[ra.pid]++; // Incrementamos el reloj
-        ra.ms.Send(pid, Request{Clock: ra.vectorPids, Pid: pidAux})
+        // Enviar la peticion a todos los procesos
+        ra.ms.Send(pid, Request{Clock: ra.vectorPids, Pid: pidAux, op: ra.op})
         ra.Mutex.Unlock()
     }
 }
@@ -112,6 +118,7 @@ func receiveReply(ra *RASharedDB) {
 }
 
 func (ra *RASharedDB) handleRequest(req Request) {
+    // prioridad a la peticion mas antigua
     var noPriority bool = ra.vectorPids[ra.pid] < req.Clock[req.pid] || (rra.vectorPids[ra.pid] ==req.Clock[req.pid])
         && (ra.pid < req.Pid)
 
@@ -121,11 +128,12 @@ func (ra *RASharedDB) handleRequest(req Request) {
         ra.ms.Send(req.Pid, Reply{})
     } 
     else {
+        // si no tenemos prioridad, respondemos
          if noPriority {
             refreshClock(ra,req.Clock)
             ra.ms.Send(req.Pid, Reply{})
           
-        } else {
+        } else { // si tenemos prioridad, posponemos la respuesta
             ra.RepDefd[req.Pid] = true
         }
     }
@@ -135,7 +143,9 @@ func (ra *RASharedDB) handleRequest(req Request) {
 
 func (ra *RASharedDB) handleReply(rep Reply) {
     refreshClock(ra,rep.Clock)
+    // incrementamos número de respuestas recibidas
     ra.OutRepCnt++
+    // si hemos recibido todas las respuestas, entramos en la seccion critica
     if ra.OutRepCnt == ra.N-1 {
         ra.chrep <- true
     }
@@ -148,8 +158,9 @@ func (ra *RASharedDB) PostProtocol(){
     ra.Mutex.Lock()
     ra.ReqCS = false
     ra.Mutex.Unlock()
-
+    // Una vez hemos salido de la seccion critica, enviamos las respuestas pospuestas
     for pidAux := 0; i < n-1; i++ {
+        // No enviamos la peticion a nosotros mismos ni a los que no han solicitado entrar en la seccion critica
         if(ra.pid == pidAux || !ra.RepDefd[pidAux]){
             continue;
         }
@@ -157,11 +168,14 @@ func (ra *RASharedDB) PostProtocol(){
     }
 }
 func (ra *RASharedDB) refreshClock(vectorPidsAux []int){
+    // Incremento del reloj propio
     ra.vectorPids[ra.pid]++;
+    // Para cada reloj de cada proceso, cogemos el maximo entre el local y el recibido
     for pidAux := 0; i < n; i++ {
         ra.vectorPids[pidAux] = max(ra.vectorPids[pidAux],vectorPidsAux[pidAux])
     }
 }
+
 func (ra *RASharedDB) maxVectorPid(vectorPids []int){
     max := 0
     for pidAux := 0; i < n; i++ {

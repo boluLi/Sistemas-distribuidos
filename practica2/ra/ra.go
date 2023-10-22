@@ -22,6 +22,13 @@ type Reply struct{
     Clock  []int
 }
 
+const (
+    Reader  = "reader"
+    Writer = "writer"
+)
+type ExclusionMatrix map[string]map[string]bool
+
+
 type RASharedDB struct {
     pid         int
     vectorPids  []int
@@ -30,18 +37,29 @@ type RASharedDB struct {
     OutRepCnt   int
     ReqCS       boolean
     RepDefd     bool[]
+    exclude ExclusionMatrix
     ms          *MessageSystem
     done        chan bool
     chrep       chan bool
-    Mutex       sync.Mutex // mutex para proteger concurrencia sobre las variables
-    // TODO: completar
+    Mutex       sync.Mutex
+    op          string 
 }
 
 
 func New(me int, usersFile string) (*RASharedDB) {
     messageTypes := []Message{Request, Reply}
     msgs = ms.New(me, usersFile string, messageTypes)
-    ra := RASharedDB{0, []int{}, 0, 0, 0, false, []int{}, &msgs,  make(chan bool),  make(chan bool), &sync.Mutex{}}
+    var exclusionRules = ExclusionMatrix{
+        Read: {
+            Read:  false,
+            Write: true,
+        },
+        Write: {
+            Read:  true,
+            Write: true,
+        },
+    }
+    ra := RASharedDB{0, []int{}, 0, 0, 0, false, []int{}, exclusionRules, &msgs,  make(chan bool),  make(chan bool), &sync.Mutex{}}
     go receiveReply(&ra)
     return &ra
 }
@@ -94,19 +112,21 @@ func receiveReply(ra *RASharedDB) {
 }
 
 func (ra *RASharedDB) handleRequest(req Request) {
+    var noPriority bool = ra.vectorPids[ra.pid] < req.Clock[req.pid] || (rra.vectorPids[ra.pid] ==req.Clock[req.pid])
+        && (ra.pid < req.Pid)
+
     refreshClock(ra,req.Clock)
     //ra.HigSeqNum = max(ra.HigSeqNum, req.Clock)
-    if ra.RepDefd[req.Pid] {
+    if !ra.ReqCS || db.exclude[req.op] {
         ra.ms.Send(req.Pid, Reply{})
-    } else {
-        ra.OutReqCnt++
-        if ra.ReqCS && (ra.vectorPids[ra.pid] < req.Clock[req.pid] || (rra.vectorPids[ra.pid] ==req.Clock[req.pid]
-            && ra.pid < req.Pid)) {
+    } 
+    else {
+         if noPriority {
             refreshClock(ra,req.Clock)
             ra.ms.Send(req.Pid, Reply{})
           
         } else {
-            ra.chrep <- true
+            ra.RepDefd[req.Pid] = true
         }
     }
 }

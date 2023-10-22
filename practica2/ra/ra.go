@@ -117,7 +117,7 @@ func (ra *RASharedDB) handleRequest(req Request) {
 
     refreshClock(ra,req.Clock)
     //ra.HigSeqNum = max(ra.HigSeqNum, req.Clock)
-    if !ra.ReqCS || db.exclude[req.op] {
+    if !ra.ReqCS || !ra.exclude[req.op] {
         ra.ms.Send(req.Pid, Reply{})
     } 
     else {
